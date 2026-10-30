@@ -12,9 +12,13 @@ KEYS = {
 
 
 class InputController:
-    def __init__(self, width: int, height: int, allowed: bool = False):
+    def __init__(
+        self, width: int, height: int, allowed: bool = False, left: int = 0, top: int = 0
+    ):
         self.width = width
         self.height = height
+        self.left = left
+        self.top = top
         self.allowed = allowed
         self.active = False
         self._pyautogui = None
@@ -24,7 +28,19 @@ class InputController:
             pyautogui.FAILSAFE = True
 
     def set_active(self, active: bool) -> None:
-        self.active = bool(self.allowed and active)
+        next_active = bool(self.allowed and active)
+        if self.active and not next_active:
+            self.release_all()
+        self.active = next_active
+
+    def release_all(self) -> None:
+        if self._pyautogui is None:
+            return
+        try:
+            for button in ("left", "right", "middle"):
+                self._pyautogui.mouseUp(button=button)
+        except self._pyautogui.FailSafeException:
+            pass
 
     def handle(self, raw: str) -> None:
         if not self.allowed or not self.active or self._pyautogui is None:
@@ -41,8 +57,8 @@ class InputController:
         p = self._pyautogui
         try:
             if kind in {"move", "down", "up"}:
-                x = max(0, min(self.width - 1, int(event.get("x", 0))))
-                y = max(0, min(self.height - 1, int(event.get("y", 0))))
+                x = max(0, min(self.width - 1, int(event.get("x", 0)))) + self.left
+                y = max(0, min(self.height - 1, int(event.get("y", 0)))) + self.top
                 p.moveTo(x, y, duration=0)
                 if kind == "down":
                     p.mouseDown(button=self._button(event.get("button")))
@@ -64,8 +80,7 @@ class InputController:
                 if isinstance(keys, list) and 1 <= len(keys) <= 3 and all(str(k).lower() in KEYS for k in keys):
                     p.hotkey(*(str(k).lower() for k in keys))
         except (p.FailSafeException, TypeError, ValueError, OverflowError):
-            # PyAutoGUI's corner failsafe intentionally interrupts pointer movement.
-            self.active = False
+            self.set_active(False)
 
     @staticmethod
     def _button(value: object) -> str:
