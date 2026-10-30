@@ -35,7 +35,7 @@ NEXUS Remote agent installed.
    nano "$CONFIG_FILE"
 
 2. Start NEXUS from this logged-in X11 desktop session:
-   "$ROOT/scripts/run-agent.sh"
+   bash "$ROOT/scripts/run-agent.sh"
 
 The agent runs in view-only mode by default. To permit remote input,
 set NEXUS_ENABLE_REMOTE_INPUT=1 in $CONFIG_FILE, then restart the agent.
