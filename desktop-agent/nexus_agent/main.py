@@ -30,10 +30,17 @@ async def run() -> int:
     session = detect_session()
     print(f"NEXUS Remote desktop session: {session.kind} (DISPLAY={session.display or 'unset'})")
     if not session.supported_for_mvp:
-        print("This MVP currently supports X11 only.")
         if session.kind == "wayland":
-            print("Wayland screen capture/input must use desktop portals/PipeWire; refusing unsafe fallback.")
+            print("Wayland support requires both desktop portal interfaces:")
+            print(f"  ScreenCast portal: {'available' if session.screencast_portal else 'MISSING'}")
+            print(f"  RemoteDesktop portal: {'available' if session.remote_desktop_portal else 'MISSING'}")
+            if session.portal_error:
+                print(f"  Portal diagnostic: {session.portal_error}")
+            print("This Cinnamon session does not expose the interfaces NEXUS needs.")
+            print("QR pairing can work, but live screen capture and remote input cannot start in this session.")
+            print("No X11 fallback or session switch will be attempted.")
         else:
+            print("This MVP currently supports X11 sessions with DISPLAY set.")
             print('Run from the logged-in desktop session and check: echo "$XDG_SESSION_TYPE"')
         return 2
 
