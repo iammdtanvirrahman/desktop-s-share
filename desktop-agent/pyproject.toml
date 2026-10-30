@@ -4,16 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexus-remote-agent"
-version = "0.1.0"
-description = "NEXUS Remote Linux desktop agent"
+version = "0.3.0"
+description = "NEXUS Remote Linux desktop agent and pairing app"
 requires-python = ">=3.10"
 dependencies = [
   "aiortc>=1.9,<2",
   "websockets>=12,<16",
   "mss>=9,<11",
   "Pillow>=10,<12",
-  "pyautogui>=0.9.54"
+  "pyautogui>=0.9.54",
+  "requests>=2.31,<3",
+  "qrcode[pil]>=7.4,<9"
 ]
 
 [project.scripts]
 nexus-agent = "nexus_agent.main:main"
+nexus-desktop = "nexus_agent.desktop_app:main"
