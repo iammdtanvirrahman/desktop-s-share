@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#090b12">
+<title>NEXUS Remote</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,Roboto,system-ui,sans-serif;background:#090b12;color:#f5f6fa}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#17203a 0,#090b12 55%);padding:22px}
+main{max-width:760px;margin:auto}.brand{font-size:22px;letter-spacing:.18em;font-weight:800}.brand span{color:#8da8ff}
+.sub{color:#929bad;font-size:13px;margin:7px 0 20px}.panel{background:#121722;border:1px solid #283246;border-radius:18px;padding:17px;margin:14px 0;box-shadow:0 12px 40px #0005}
+label{display:block;color:#adb8ca;font-size:12px;margin:8px 0 5px}input{width:100%;min-width:0;border:1px solid #344158;background:#0b1019;color:#fff;padding:12px;border-radius:10px;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+button{background:#dce5ff;color:#111827;border:0;border-radius:10px;padding:12px 14px;font-weight:750;min-height:44px}button.secondary{background:#252f42;color:#e9eefc}button:disabled{opacity:.45}
+#status{font-size:12px;color:#9da9bd;margin-left:8px}#screen{width:100%;height:auto;min-height:160px;display:block;background:#05070b;border-radius:12px;touch-action:none;object-fit:contain}
+#screenWrap{overflow:hidden;background:#05070b;border-radius:12px}.hint{color:#8995aa;font-size:12px;line-height:1.5}.danger{color:#ffb7b7}
+@media(max-width:420px){body{padding:14px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><main>
+<div class="brand">NEXUS <span>REMOTE</span></div>
+<div class="sub">Secure remote desktop · Android client preview</div>
+<section class="panel">
+<label for="signal">Signaling WSS URL</label><input id="signal" placeholder="wss://your-domain.example/ws" autocomplete="url">
+<div class="grid">
+<div><label for="room">Pairing room</label><input id="room" placeholder="your-private-room"></div>
+<div><label for="token">Access token</label><input id="token" type="password" autocomplete="off" placeholder="Session secret"></div>
+</div>
+<div class="actions"><button id="connect">Connect</button><button id="disconnect" class="secondary" disabled>Disconnect</button><span id="status">Not connected</span></div>
+<p class="hint">Enter the same room and token configured on your Linux laptop. Use HTTPS/WSS for Internet connections. Signaling credentials are held in memory only.</p>
+</section>
+<section class="panel">
+<div id="screenWrap"><video id="screen" autoplay playsinline muted></video></div>
+<div class="actions">
+<button id="control" class="secondary" disabled>Enable touch control</button>
+<button id="right" class="secondary" disabled>Right click</button>
+<button id="scrollUp" class="secondary" disabled>Scroll ↑</button>
+<button id="scrollDown" class="secondary" disabled>Scroll ↓</button>
+</div>
+<label for="textInput">Keyboard input</label>
+<input id="textInput" placeholder="Tap here and type (ASCII text)" disabled>
+<div class="actions">
+<button data-key="enter" class="secondary key" disabled>Enter</button>
+<button data-key="backspace" class="secondary key" disabled>Backspace</button>
+<button data-key="tab" class="secondary key" disabled>Tab</button>
+<button data-key="esc" class="secondary key" disabled>Esc</button>
+</div>
+<p class="hint">Touch the video to click. Drag to move/drag. Remote input is disabled on the laptop unless its owner explicitly enables it in the agent configuration.</p>
+</section>
+</main>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const status = text => $("status").textContent = text;
+let ws = null, pc = null, dc = null, connected = false, controlAllowed = false, controlEnabled = false;
+let desktop = {width:1600,height:900}, activePointer = null;
+const send = value => { if (dc && dc.readyState === "open") dc.send(JSON.stringify(value)); };
+const waitIce = async peer => {
+  if (peer.iceGatheringState === "complete") return;
+  await Promise.race([
+    new Promise(resolve => peer.addEventListener("icegatheringstatechange", () => {
+      if (peer.iceGatheringState === "complete") resolve();
+    })),
+    new Promise(resolve => setTimeout(resolve, 10000))
+  ]);
+};
+function enableControls(enabled) {
+  ["right","scrollUp","scrollDown","textInput"].forEach(id => $(id).disabled = !enabled);
+  document.querySelectorAll(".key").forEach(el => el.disabled = !enabled);
+  $("control").disabled = !controlAllowed;
+  $("control").textContent = enabled ? "Disable touch control" : "Enable touch control";
+  $("control").classList.toggle("secondary", !enabled);
+}
+function point(e) {
+  const rect = $("screen").getBoundingClientRect();
+  const vw = $("screen").videoWidth || desktop.width;
+  const vh = $("screen").videoHeight || desktop.height;
+  const scale = Math.min(rect.width / vw, rect.height / vh);
+  const shownW = vw * scale, shownH = vh * scale;
+  const offsetX = (rect.width - shownW) / 2, offsetY = (rect.height - shownH) / 2;
+  return {
+    x: Math.max(0, Math.min(desktop.width - 1, Math.round((e.clientX - rect.left - offsetX) / shownW * desktop.width))),
+    y: Math.max(0, Math.min(desktop.height - 1, Math.round((e.clientY - rect.top - offsetY) / shownH * desktop.height)))
+  };
+}
+$("screen").addEventListener("pointerdown", e => {
+  if (!controlEnabled) return;
+  e.preventDefault(); activePointer = e.pointerId; $("screen").setPointerCapture(e.pointerId);
+  const p = point(e); send({type:"move",...p}); send({type:"down",...p,button:"left"});
+});
+$("screen").addEventListener("pointermove", e => {
+  if (!controlEnabled || activePointer !== e.pointerId) return;
+  send({type:"move",...point(e)});
+});
+function endPointer(e) {
+  if (activePointer !== e.pointerId) return;
+  send({type:"up",...point(e),button:"left"}); activePointer = null;
+}
+$("screen").addEventListener("pointerup", endPointer);
+$("screen").addEventListener("pointercancel", endPointer);
+$("screen").addEventListener("contextmenu", e => e.preventDefault());
+$("right").onclick = () => send({type:"click",button:"right"});
+$("scrollUp").onclick = () => send({type:"scroll",delta:3});
+$("scrollDown").onclick = () => send({type:"scroll",delta:-3});
+$("control").onclick = () => {
+  if (!controlAllowed) return;
+  controlEnabled = !controlEnabled;
+  send({type:"control_request",enabled:controlEnabled});
+  enableControls(controlEnabled);
+};
+$("textInput").addEventListener("input", e => {
+  const value = e.target.value;
+  for (const char of value) {
+    if (char.charCodeAt(0) >= 32 && char.charCodeAt(0) <= 126) send({type:"key",key:char});
+  }
+  e.target.value = "";
+});
+document.querySelectorAll(".key").forEach(el => el.addEventListener("click", () => send({type:"key",key:el.dataset.key})));
+function cleanup() {
+  connected = false; controlAllowed = false; controlEnabled = false; activePointer = null;
+  if (dc) { try { dc.close(); } catch (_) {} }
+  if (pc) { try { pc.close(); } catch (_) {} }
+  if (ws) { try { ws.close(); } catch (_) {} }
+  dc = pc = ws = null; $("screen").srcObject = null;
+  $("connect").disabled = false; $("disconnect").disabled = true; enableControls(false);
+}
+$("disconnect").onclick = () => { cleanup(); status("Disconnected"); };
+$("connect").onclick = async () => {
+  cleanup();
+  const signalingUrl = $("signal").value.trim(), room = $("room").value.trim(), token = $("token").value;
+  if (!/^wss:\/\//.test(signalingUrl) || !room || !token) { status("Enter WSS URL, room and token"); return; }
+  $("connect").disabled = true; status("Connecting to secure signaling…");
+  try {
+    ws = new WebSocket(signalingUrl);
+    await new Promise((resolve,reject) => { ws.onopen=resolve; ws.onerror=()=>reject(new Error("WebSocket connection failed")); });
+    ws.send(JSON.stringify({type:"join",room,role:"viewer",token}));
+    pc = new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+    dc = pc.createDataChannel("nexus-control");
+    dc.onopen = () => status("Control channel ready · waiting for desktop stream");
+    dc.onmessage = event => {
+      let msg; try { msg = JSON.parse(event.data); } catch (_) { return; }
+      if (msg.type === "agent_info") {
+        desktop = {width:msg.width,height:msg.height};
+        controlAllowed = !!msg.remote_input_allowed;
+        $("control").disabled = !controlAllowed;
+        if (!controlAllowed) status("Live · laptop owner has disabled remote input");
+      } else if (msg.type === "control_status") {
+        controlEnabled = !!msg.enabled; enableControls(controlEnabled);
+        status(msg.enabled ? "Touch control enabled" : (msg.reason || "Touch control disabled"));
+      }
+    };
+    pc.ontrack = event => {
+      $("screen").srcObject = event.streams[0];
+      status("Receiving desktop screen");
+    };
+    pc.onconnectionstatechange = () => {
+      const state = pc.connectionState;
+      if (state === "failed" || state === "disconnected" || state === "closed") status("WebRTC: " + state + " · check TURN/network settings");
+    };
+    ws.onmessage = async event => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "error") { status(msg.message); cleanup(); return; }
+      if (msg.type === "peer-ready" && !pc.localDescription) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitIce(pc);
+        ws.send(JSON.stringify({type:"offer",room,sdp:pc.localDescription.sdp}));
+        status("Laptop found · negotiating encrypted media");
+      } else if (msg.type === "answer") {
+        await pc.setRemoteDescription({type:"answer",sdp:msg.sdp});
+      }
+    };
+    ws.onclose = () => { if (connected) { status("Signaling disconnected"); cleanup(); } };
+    connected = true; $("disconnect").disabled = false;
+    status("Connected to signaling · waiting for laptop agent");
+  } catch (error) {
+    cleanup(); status("Connection failed: " + error.message);
+  }
+};
+enableControls(false);
+})();
+</script>
+</body></html>
