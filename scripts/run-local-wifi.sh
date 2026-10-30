@@ -24,6 +24,7 @@ fi
 export NEXUS_ALLOW_INSECURE_WS=1
 export NEXUS_PAIRING_ADMIN_TOKEN
 NEXUS_PAIRING_ADMIN_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(40))')"
+mkdir -p "${XDG_CACHE_HOME:-$HOME/.cache}"
 export NEXUS_PUBLIC_WSS_URL="ws://$LOCAL_IP:$PORT/ws"
 export NEXUS_SIGNALING_URL="$NEXUS_PUBLIC_WSS_URL"
 export NEXUS_PAIRING_API_URL="http://$LOCAL_IP:$PORT/api/pairing"
