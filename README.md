@@ -1,114 +1,109 @@
 # NEXUS Remote
 
-Android remote viewer + Linux Mint desktop agent. This repository currently contains an early X11 screen-streaming prototype.
+A simple QR-paired remote desktop for Android and Linux Mint.
 
-## Current milestone: 0.2
+## The intended experience
 
-- Android app includes a bundled remote-viewer UI.
-- Linux agent captures the primary X11 monitor and publishes video over WebRTC.
-- FastAPI WebSocket service relays WebRTC offer/answer messages.
-- Touch/mouse and keyboard input are disabled by default and require a local opt-in on the laptop.
-- Optional TURN configuration is supported by the desktop agent and Android viewer.
+**Laptop:** Open NEXUS Remote Desktop. A pairing QR appears automatically.
 
-**Not production-ready:** no real device-to-device integration test has been completed yet. Internet use requires a publicly reachable signaling server over HTTPS/WSS and a TURN server for networks where direct WebRTC connectivity fails.
+**Android:** Open NEXUS Remote. The QR scanner opens immediately. Scan the QR on the laptop and the app connects automatically.
+
+No manual IP, room, URL, or token entry is needed.
+
+## Current milestone: 0.3 QR pairing
+
+- Android QR scanner opens on launch (JourneyApps ZXing).
+- Linux Mint desktop app automatically requests and displays a 3-minute pairing QR.
+- Pairing uses a short-lived random session token; the server admin token never goes into the QR or Android app.
+- The laptop app starts the desktop agent and keeps the session alive.
+- X11 screen capture streams over WebRTC.
+- The laptop's local "Allow this phone to control mouse and keyboard" checkbox is off by default.
+- Optional TURN settings can be included in the QR for restrictive networks.
+
+**Not production-ready:** signaling and TURN infrastructure still need to be deployed and configured. An APK build does not mean a physical-device remote session has been tested.
 
 ## Repository layout
 
-- `android/` — Kotlin Android app and bundled WebRTC viewer.
-- `desktop-agent/` — Python Linux Mint agent.
-- `signaling/` — authenticated WebSocket signaling relay.
-- `docs/` — architecture and setup.
+- `android/` — Kotlin Android QR scanner and remote viewer.
+- `desktop-agent/` — Python Linux Mint app and desktop agent.
+- `signaling/` — FastAPI pairing API and WebSocket relay.
+- `scripts/` — Linux Mint installer and launcher.
+- `docs/` — architecture and Android build instructions.
 
-## Linux Mint setup
+## 1. Deploy the signaling server
 
-First check the desktop session:
-
-```bash
-echo "$XDG_SESSION_TYPE"
-```
-
-This prototype currently supports **X11**. It deliberately exits on Wayland because capture and input must be integrated with the compositor's approved portal/PipeWire APIs.
-
-Install prerequisites:
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip python3-tk scrot
-```
-
-Install the agent:
-
-```bash
-cd desktop-agent
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -e .
-```
-
-Run it from the logged-in graphical desktop session. Configure the signaling service first:
-
-```bash
-export NEXUS_SIGNALING_URL="wss://YOUR-SERVER/ws"
-export NEXUS_SIGNALING_TOKEN="YOUR_LONG_RANDOM_SECRET"
-export NEXUS_ROOM="YOUR_PRIVATE_RANDOM_ROOM"
-nexus-agent
-```
-
-The agent starts in **view-only mode**. To explicitly allow remote mouse/keyboard input on the laptop, stop it and restart with:
-
-```bash
-export NEXUS_ENABLE_REMOTE_INPUT=1
-nexus-agent
-```
-
-Only do this on a device and session you own and intend to control remotely. Keep the desktop session unlocked during testing.
-
-Optional TURN environment variables on the laptop:
-
-```bash
-export NEXUS_TURN_URL="turn:YOUR-TURN-HOST:3478?transport=udp"
-export NEXUS_TURN_USERNAME="YOUR_TURN_USERNAME"
-export NEXUS_TURN_CREDENTIAL="YOUR_TURN_PASSWORD"
-```
-
-## Signaling server
-
-On a publicly reachable host with TLS termination in front of Uvicorn:
+Use a public host with HTTPS/WSS reverse proxy. On the server:
 
 ```bash
 cd signaling
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-export NEXUS_SIGNALING_TOKEN="same-long-random-secret"
-uvicorn server:app --host 127.0.0.1 --port 8765
+export NEXUS_PUBLIC_WSS_URL="wss://YOUR-SERVER.example/ws"
+export NEXUS_PAIRING_ADMIN_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
+uvicorn server:app --host 127.0.0.1 --port 8765 --workers 1
 ```
 
-Configure your reverse proxy to forward `wss://YOUR-SERVER/ws` to Uvicorn and `/health` to the health endpoint. Do not expose an unauthenticated plain-HTTP signaling service publicly.
+Keep the generated admin token private. Configure the reverse proxy to forward:
+- `wss://YOUR-SERVER.example/ws` to Uvicorn's `/ws`
+- `https://YOUR-SERVER.example/api/pairing` to Uvicorn's `/api/pairing`
+- `https://YOUR-SERVER.example/health` to Uvicorn's `/health`
 
-The current signaling prototype uses one shared bearer token and in-memory rooms. Before public release, replace this with user/device identity, short-lived pairing codes, per-session authorization, rate limits, abuse protection, and temporary TURN credentials.
+The pairing store is in-memory, so use one Uvicorn worker. For a production multi-worker deployment, move pairing and session state to Redis or another shared store and add rate limiting.
 
-## Android build
+### Optional TURN relay
 
-Open the `android/` directory in Android Studio with JDK 17 and Android SDK 35 installed, then build the `app` debug variant.
+STUN will not connect every NAT/firewall combination. Configure a TURN server and set its endpoint and short-lived credentials on the signaling server as `NEXUS_TURN_URL`, `NEXUS_TURN_USERNAME`, and `NEXUS_TURN_CREDENTIAL`. The pairing API includes these in the QR payload. Use temporary credentials rather than a permanent public TURN password.
 
-With Gradle 8.7 installed:
+## 2. Install the Linux Mint desktop app
+
+Check the session:
 
 ```bash
-gradle -p android assembleDebug
+echo "$XDG_SESSION_TYPE"
 ```
 
-APK output:
+This milestone supports X11. Wayland portal/PipeWire support is not implemented yet.
 
-`android/app/build/outputs/apk/debug/app-debug.apk`
+Clone and install:
 
-The Android viewer asks for a WSS URL, room, token, and optional TURN URL/credentials. Use the same signaling token and room configured on the laptop. Never put production secrets into source control.
+```bash
+git clone -b nexus-development https://github.com/iammdtanvirrahman/desktop-s-share.git
+cd desktop-s-share
+bash scripts/setup-linux-mint.sh
+```
 
-## Security limits
+Edit the local configuration:
 
-- Screen media uses WebRTC (DTLS-SRTP); signaling must be protected with WSS.
-- STUN alone cannot guarantee connectivity across every NAT/firewall. Configure TURN for reliable Internet connections.
-- The app does not expose VNC/RDP ports.
-- Remote input is disabled by default and requires the laptop owner to start the agent with `NEXUS_ENABLE_REMOTE_INPUT=1`.
-- This is an experimental prototype, not a substitute for a security-reviewed remote-support product.
+```bash
+nano ~/.config/nexus-remote/agent.env
+```
+
+Set:
+- `NEXUS_SIGNALING_URL=wss://YOUR-SERVER.example/ws`
+- `NEXUS_PAIRING_ADMIN_TOKEN=` the same private token generated on the signaling server
+
+Launch:
+
+```bash
+bash scripts/run-agent.sh
+```
+
+The NEXUS Remote desktop window opens and generates a QR automatically. The QR expires after 3 minutes; press **Generate new QR** to replace it.
+
+The phone can only control mouse/keyboard when the laptop owner checks the local control checkbox before creating the pairing QR. Leave it unchecked for view-only access.
+
+## 3. Install the Android APK
+
+Open the latest successful **NEXUS Remote CI** run for branch `nexus-development` in the repository Actions tab. Download the `nexus-remote-debug-apk` artifact and install `app-debug.apk` from the ZIP.
+
+When Android opens NEXUS Remote, allow camera access and scan the QR displayed on the laptop. The connection starts automatically.
+
+## Security notes
+
+- The server admin token stays on the laptop and signaling server; it is never embedded in Android or the QR.
+- QR session tokens are random and expire after 3 minutes.
+- WebRTC media uses DTLS-SRTP; use WSS for signaling.
+- Remote input is disabled by default and separately enabled on the laptop.
+- Do not expose VNC/RDP directly to the Internet.
+- This is an experimental prototype and needs a security review before public release.
