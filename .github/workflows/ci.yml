@@ -1,0 +1,40 @@
+name: NEXUS Remote CI
+
+on:
+  push:
+    branches: [main, nexus-development]
+  pull_request:
+    branches: [main]
+
+jobs:
+  desktop-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          pip install -r desktop-agent/requirements.txt
+      - name: Compile and test agent
+        run: |
+          python -m compileall -q desktop-agent/nexus_agent
+          PYTHONPATH=desktop-agent pytest -q desktop-agent/tests
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+      - name: Build debug APK
+        run: gradle -p android assembleDebug
