@@ -104,9 +104,10 @@ class NexusDesktopApp:
         if explicit:
             return explicit
         parts = urlsplit(ws_url)
-        if parts.scheme != "wss" or not parts.netloc:
-            raise ValueError("NEXUS_SIGNALING_URL must use wss:// for Internet pairing.")
-        return urlunsplit(("https", parts.netloc, "/api/pairing", "", ""))
+        if parts.scheme not in {"wss", "ws"} or not parts.netloc:
+            raise ValueError("NEXUS_SIGNALING_URL must use wss:// or ws:// on your trusted local Wi-Fi.")
+        api_scheme = "https" if parts.scheme == "wss" else "http"
+        return urlunsplit((api_scheme, parts.netloc, "/api/pairing", "", ""))
 
     def generate_pairing(self) -> None:
         if self.busy:
@@ -134,8 +135,11 @@ class NexusDesktopApp:
             payload = response.json()
             if payload.get("app") != "nexus-remote" or payload.get("v") != 1:
                 raise RuntimeError("Pairing server returned an unsupported QR payload.")
-            if not str(payload.get("ws_url", "")).startswith("wss://"):
-                raise RuntimeError("Pairing server did not return a secure WSS URL.")
+            returned_ws = str(payload.get("ws_url", ""))
+            if not returned_ws.startswith(("wss://", "ws://")):
+                raise RuntimeError("Pairing server returned an invalid WebSocket URL.")
+            if returned_ws.startswith("ws://") and os.getenv("NEXUS_ALLOW_INSECURE_WS") != "1":
+                raise RuntimeError("Unencrypted WebSocket is only allowed in explicit local Wi-Fi mode.")
             self.root.after(0, lambda: self._show_pairing(payload))
         except Exception as exc:
             self.root.after(0, lambda message=str(exc): self._pairing_failed(message))
