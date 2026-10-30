@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
             val qr = JSONObject(rawPayload)
             val wsUrl = qr.optString("ws_url")
             if (qr.optString("app") != "nexus-remote" || qr.optInt("v") != 1 ||
-                !wsUrl.startsWith("wss://") ||
+                !(wsUrl.startsWith("wss://") || wsUrl.startsWith("ws://")) ||
                 qr.optString("room").isBlank() || qr.optString("token").isBlank()
             ) {
                 throw IllegalArgumentException("This is not a valid NEXUS pairing QR.")
@@ -113,7 +113,7 @@ class MainActivity : ComponentActivity() {
             domStorageEnabled = true
             allowFileAccess = false
             allowContentAccess = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             mediaPlaybackRequiresUserGesture = false
             javaScriptCanOpenWindowsAutomatically = false
             setSupportMultipleWindows(false)
