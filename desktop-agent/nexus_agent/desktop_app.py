@@ -172,6 +172,13 @@ class NexusDesktopApp:
             config_dir = Path(os.getenv("XDG_CONFIG_HOME", Path.home() / ".config")) / "nexus-remote"
             config_dir.mkdir(parents=True, exist_ok=True)
             self.agent_log = open(config_dir / "agent.log", "a", encoding="utf-8")
+            if os.getenv("XDG_SESSION_TYPE", "").lower() == "wayland":
+                self.busy = False
+                self.regenerate_button.configure(state="normal")
+                self.set_status("QR ready — Wayland streaming is not supported yet", "#ffcc88")
+                self.timer_label.configure(text="Pairing UI works; screen sharing/control needs Wayland support")
+                return
+
             self.agent_process = subprocess.Popen(
                 [sys.executable, "-m", "nexus_agent.main"],
                 env=agent_env,
