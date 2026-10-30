@@ -35,6 +35,8 @@ class InputController:
             event = json.loads(raw)
         except (ValueError, TypeError):
             return
+        if not isinstance(event, dict):
+            return
         kind = event.get("type")
         p = self._pyautogui
         try:
@@ -61,10 +63,10 @@ class InputController:
                 keys = event.get("keys")
                 if isinstance(keys, list) and 1 <= len(keys) <= 3 and all(str(k).lower() in KEYS for k in keys):
                     p.hotkey(*(str(k).lower() for k in keys))
-        except p.FailSafeException:
+        except (p.FailSafeException, TypeError, ValueError, OverflowError):
             # PyAutoGUI's corner failsafe intentionally interrupts pointer movement.
             self.active = False
 
     @staticmethod
     def _button(value: object) -> str:
-        return value if value in {"left", "right", "middle"} else "left"
+        return value if isinstance(value, str) and value in {"left", "right", "middle"} else "left"
