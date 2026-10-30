@@ -8,7 +8,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/nexus-remote"
 CONFIG_FILE="$CONFIG_DIR/agent.env"
 
 if [[ "${XDG_SESSION_TYPE:-unknown}" != "x11" ]]; then
-  echo "NEXUS 0.2 currently supports X11 sessions only."
+  echo "NEXUS 0.3 currently supports X11 sessions only."
   echo "Detected: ${XDG_SESSION_TYPE:-unknown}"
   echo 'Check with: echo "$XDG_SESSION_TYPE"'
   echo "Wayland portal/PipeWire support is not part of this build."
@@ -27,17 +27,22 @@ chmod 700 "$CONFIG_DIR"
 if [[ ! -f "$CONFIG_FILE" ]]; then
   install -m 600 "$AGENT_DIR/.env.example" "$CONFIG_FILE"
 fi
+chmod 600 "$CONFIG_FILE"
 
 cat <<EOF
-NEXUS Remote agent installed.
+NEXUS Remote desktop app installed.
 
-1. Edit your private settings:
+1. Configure the private server details:
    nano "$CONFIG_FILE"
 
-2. Start NEXUS from this logged-in X11 desktop session:
+   Set NEXUS_SIGNALING_URL and NEXUS_PAIRING_ADMIN_TOKEN.
+
+2. Start the laptop app:
    bash "$ROOT/scripts/run-agent.sh"
 
-The agent runs in view-only mode by default. To permit remote input,
-set NEXUS_ENABLE_REMOTE_INPUT=1 in $CONFIG_FILE, then restart the agent.
-Never share your token or TURN credentials.
+A pairing QR will appear automatically. Open NEXUS Remote on Android and scan it.
+The QR expires after 3 minutes. Generate a new one when needed.
+
+The laptop starts in view-only mode. You can explicitly allow mouse/keyboard
+control using the checkbox in the laptop pairing window.
 EOF
