@@ -3,10 +3,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/nexus-remote/agent.env"
-AGENT="$ROOT/desktop-agent/.venv/bin/nexus-agent"
+DESKTOP_APP="$ROOT/desktop-agent/.venv/bin/nexus-desktop"
 
-if [[ ! -x "$AGENT" ]]; then
-  echo "NEXUS agent is not installed. Run scripts/setup-linux-mint.sh first." >&2
+if [[ ! -x "$DESKTOP_APP" ]]; then
+  echo "NEXUS desktop app is not installed. Run scripts/setup-linux-mint.sh first." >&2
   exit 2
 fi
 if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -19,4 +19,4 @@ set -a
 # shellcheck disable=SC1090
 source "$CONFIG_FILE"
 set +a
-exec "$AGENT"
+exec "$DESKTOP_APP"
