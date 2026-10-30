@@ -8,7 +8,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/nexus-remote"
 CONFIG_FILE="$CONFIG_DIR/agent.env"
 
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip python3-tk scrot
+sudo apt install -y python3 python3-venv python3-pip python3-tk scrot dbus
 
 python3 -m venv "$VENV"
 "$VENV/bin/python" -m pip install --upgrade pip
