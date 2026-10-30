@@ -27,4 +27,5 @@ android {
 
 dependencies {
     implementation("androidx.webkit:webkit:1.12.1")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 }
