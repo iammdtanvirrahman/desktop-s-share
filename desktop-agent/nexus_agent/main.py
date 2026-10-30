@@ -49,7 +49,9 @@ async def run() -> int:
 
     track = DesktopVideoTrack()
     allow_input = os.getenv("NEXUS_ENABLE_REMOTE_INPUT") == "1"
-    controller = InputController(track.width, track.height, allowed=allow_input)
+    controller = InputController(
+        track.width, track.height, allowed=allow_input, left=track.left, top=track.top
+    )
     pc = RTCPeerConnection(RTCConfiguration(iceServers=ice_servers()))
     pc.addTrack(track)
     print(f"Desktop resolution: {track.width}x{track.height}")
@@ -66,6 +68,10 @@ async def run() -> int:
                 "remote_input_allowed": allow_input,
             }))
 
+        @channel.on("close")
+        def on_close():
+            controller.set_active(False)
+
         @channel.on("message")
         def on_message(message):
             if not isinstance(message, str):
@@ -73,6 +79,8 @@ async def run() -> int:
             try:
                 event = json.loads(message)
             except ValueError:
+                return
+            if not isinstance(event, dict):
                 return
             if event.get("type") == "control_request":
                 active = bool(allow_input and event.get("enabled"))
@@ -93,6 +101,8 @@ async def run() -> int:
             print(f"Waiting for Android viewer in room '{room}'. Press Ctrl+C to stop.")
             async for raw in ws:
                 message = json.loads(raw)
+                if not isinstance(message, dict):
+                    continue
                 if message.get("type") == "error":
                     print("Signaling error:", message.get("message", "unknown"))
                 elif message.get("type") == "offer":
@@ -112,6 +122,7 @@ async def run() -> int:
     except websockets.ConnectionClosed as exc:
         print(f"Signaling connection closed: {exc}")
     finally:
+        controller.set_active(False)
         await pc.close()
         track.close()
     return 0
