@@ -1,0 +1,26 @@
+name: Build NEXUS Desktop DEB
+on:
+  workflow_dispatch:
+  push:
+    branches: [nexus-development]
+    paths:
+      - "desktop-agent/**"
+      - "signaling/**"
+      - "scripts/**"
+      - ".github/workflows/build-deb.yml"
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Debian package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev
+          chmod +x scripts/build-deb.sh
+          bash scripts/build-deb.sh 0.3.1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NEXUS-Remote-Linux-DEB
+          path: dist/*.deb
+          if-no-files-found: error
