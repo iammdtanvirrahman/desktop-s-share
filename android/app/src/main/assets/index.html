@@ -27,6 +27,12 @@ button{background:#dce5ff;color:#111827;border:0;border-radius:10px;padding:12px
 <div><label for="room">Pairing room</label><input id="room" placeholder="your-private-room"></div>
 <div><label for="token">Access token</label><input id="token" type="password" autocomplete="off" placeholder="Session secret"></div>
 </div>
+<label for="turnUrl">TURN server (optional; recommended for restrictive networks)</label>
+<input id="turnUrl" placeholder="turn:turn.example.net:3478?transport=udp">
+<div class="grid">
+<div><label for="turnUser">TURN username</label><input id="turnUser" autocomplete="off"></div>
+<div><label for="turnCredential">TURN credential</label><input id="turnCredential" type="password" autocomplete="off"></div>
+</div>
 <div class="actions"><button id="connect">Connect</button><button id="disconnect" class="secondary" disabled>Disconnect</button><span id="status">Not connected</span></div>
 <p class="hint">Enter the same room and token configured on your Linux laptop. Use HTTPS/WSS for Internet connections. Signaling credentials are held in memory only.</p>
 </section>
@@ -135,7 +141,15 @@ $("connect").onclick = async () => {
     ws = new WebSocket(signalingUrl);
     await new Promise((resolve,reject) => { ws.onopen=resolve; ws.onerror=()=>reject(new Error("WebSocket connection failed")); });
     ws.send(JSON.stringify({type:"join",room,role:"viewer",token}));
-    pc = new RTCPeerConnection({iceServers:[{urls:"stun:stun.l.google.com:19302"}]});
+    const iceServers = [{urls:"stun:stun.l.google.com:19302"}];
+    const turnUrl = $("turnUrl").value.trim();
+    const turnUser = $("turnUser").value.trim();
+    const turnCredential = $("turnCredential").value;
+    if (turnUrl) {
+      if (!turnUser || !turnCredential) throw new Error("TURN username and credential are required when a TURN URL is supplied");
+      iceServers.push({urls:turnUrl,username:turnUser,credential:turnCredential});
+    }
+    pc = new RTCPeerConnection({iceServers});
     dc = pc.createDataChannel("nexus-control");
     dc.onopen = () => status("Control channel ready · waiting for desktop stream");
     dc.onmessage = event => {
