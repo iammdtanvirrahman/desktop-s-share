@@ -68,8 +68,9 @@ const waitIce = async peer => {
     new Promise(resolve => peer.addEventListener("icegatheringstatechange", () => {
       if (peer.iceGatheringState === "complete") resolve();
     })),
-    new Promise(resolve => setTimeout(resolve, 10000))
+    new Promise(resolve => setTimeout(resolve, 12000))
   ]);
+  if (peer.iceGatheringState !== "complete") throw new Error("ICE gathering timed out. Configure TURN and retry.");
 };
 function enableControls(enabled) {
   ["right","scrollUp","scrollDown","textInput"].forEach(id => $(id).disabled = !enabled);
@@ -150,6 +151,7 @@ $("connect").onclick = async () => {
       iceServers.push({urls:turnUrl,username:turnUser,credential:turnCredential});
     }
     pc = new RTCPeerConnection({iceServers});
+    pc.addTransceiver("video", {direction:"recvonly"});
     dc = pc.createDataChannel("nexus-control");
     dc.onopen = () => status("Control channel ready · waiting for desktop stream");
     dc.onmessage = event => {
@@ -165,7 +167,7 @@ $("connect").onclick = async () => {
       }
     };
     pc.ontrack = event => {
-      $("screen").srcObject = event.streams[0];
+      $("screen").srcObject = event.streams[0] || new MediaStream([event.track]);
       status("Receiving desktop screen");
     };
     pc.onconnectionstatechange = () => {
