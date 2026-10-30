@@ -58,7 +58,8 @@ async def health():
 async def create_pairing(authorization: str | None = Header(default=None)):
     admin_token = os.environ.get("NEXUS_PAIRING_ADMIN_TOKEN", "")
     public_wss_url = os.environ.get("NEXUS_PUBLIC_WSS_URL", "")
-    if not admin_token or not public_wss_url.startswith("wss://"):
+    allow_lan_ws = os.environ.get("NEXUS_ALLOW_INSECURE_WS") == "1" and public_wss_url.startswith("ws://")
+    if not admin_token or not (public_wss_url.startswith("wss://") or allow_lan_ws):
         raise HTTPException(status_code=503, detail="Pairing service is not configured")
     expected = f"Bearer {admin_token}"
     if not authorization or not hmac.compare_digest(authorization, expected):
