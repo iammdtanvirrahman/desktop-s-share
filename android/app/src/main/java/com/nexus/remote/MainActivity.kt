@@ -1,6 +1,5 @@
 package com.nexus.remote
 
-import android.app.Activity
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -18,14 +17,13 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.ComponentActivity
 import androidx.webkit.WebViewAssetLoader
-import com.google.zxing.integration.android.IntentResult
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import org.json.JSONObject
 
-class MainActivity : Activity() {
+class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var assetLoader: WebViewAssetLoader
 
@@ -53,14 +51,11 @@ class MainActivity : Activity() {
     }
 
     private fun showScanPrompt() {
-        val background = GradientDrawable().apply {
-            setColor(Color.rgb(9, 11, 18))
-        }
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(32, 32, 32, 32)
-            this.background = background
+            background = GradientDrawable().apply { setColor(Color.rgb(9, 11, 18)) }
         }
         val title = TextView(this).apply {
             text = "NEXUS REMOTE"
@@ -87,19 +82,18 @@ class MainActivity : Activity() {
     }
 
     private fun openViewer(rawPayload: String) {
-        val payload = try {
-            JSONObject(rawPayload).also { qr ->
-                val wsUrl = qr.optString("ws_url")
-                if (qr.optString("app") != "nexus-remote" || qr.optInt("v") != 1 ||
-                    !wsUrl.startsWith("wss://") ||
-                    qr.optString("room").isBlank() || qr.optString("token").isBlank()
-                ) {
-                    throw IllegalArgumentException("This is not a valid NEXUS pairing QR.")
-                }
-                val expiresAt = qr.optLong("expires_at", 0L)
-                if (expiresAt > 0L && System.currentTimeMillis() / 1000L >= expiresAt) {
-                    throw IllegalArgumentException("This pairing QR has expired. Generate a new one on the laptop.")
-                }
+        try {
+            val qr = JSONObject(rawPayload)
+            val wsUrl = qr.optString("ws_url")
+            if (qr.optString("app") != "nexus-remote" || qr.optInt("v") != 1 ||
+                !wsUrl.startsWith("wss://") ||
+                qr.optString("room").isBlank() || qr.optString("token").isBlank()
+            ) {
+                throw IllegalArgumentException("This is not a valid NEXUS pairing QR.")
+            }
+            val expiresAt = qr.optLong("expires_at", 0L)
+            if (expiresAt > 0L && System.currentTimeMillis() / 1000L >= expiresAt) {
+                throw IllegalArgumentException("This pairing QR has expired. Generate a new one on the laptop.")
             }
         } catch (error: Exception) {
             Toast.makeText(this, error.message ?: "Invalid pairing QR", Toast.LENGTH_LONG).show()
@@ -125,18 +119,15 @@ class MainActivity : Activity() {
         webView.addJavascriptInterface(object {
             @JavascriptInterface
             fun scanAgain() {
-                runOnUiThread { startQrScan() }
+                runOnUiThread {
+                    webView.stopLoading()
+                    webView.destroy()
+                    startQrScan()
+                }
             }
         }, "NexusNative")
-        webView.webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(
-                view: WebView,
-                request: WebResourceRequest
-            ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
-        }
         webView.webChromeClient = WebChromeClient()
         webView.overScrollMode = View.OVER_SCROLL_NEVER
-        setContentView(webView)
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
                 view: WebView,
@@ -146,9 +137,13 @@ class MainActivity : Activity() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 val safeJsonString = JSONObject.quote(rawPayload)
-                view.evaluateJavascript("window.NEXUS_REMOTE && window.NEXUS_REMOTE.startFromQr($safeJsonString);", null)
+                view.evaluateJavascript(
+                    "window.NEXUS_REMOTE && window.NEXUS_REMOTE.startFromQr($safeJsonString);",
+                    null
+                )
             }
         }
+        setContentView(webView)
         webView.loadUrl("https://appassets.androidplatform.net/assets/index.html")
     }
 
