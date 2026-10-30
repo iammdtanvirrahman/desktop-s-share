@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nexus-remote-agent"
+version = "0.1.0"
+description = "NEXUS Remote Linux desktop agent"
+requires-python = ">=3.10"
+dependencies = [
+  "aiortc>=1.9,<2",
+  "websockets>=12,<16",
+  "mss>=9,<11",
+  "Pillow>=10,<12",
+  "pyautogui>=0.9.54"
+]
+
+[project.scripts]
+nexus-agent = "nexus_agent.main:main"
