@@ -26,6 +26,7 @@ import org.json.JSONObject
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
     private lateinit var assetLoader: WebViewAssetLoader
+    private var webViewDestroyed = false
 
     private val qrScanner = registerForActivityResult(ScanContract()) { result ->
         val contents = result.contents
@@ -106,6 +107,7 @@ class MainActivity : ComponentActivity() {
             .build()
 
         webView = WebView(this)
+        webViewDestroyed = false
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -120,8 +122,11 @@ class MainActivity : ComponentActivity() {
             @JavascriptInterface
             fun scanAgain() {
                 runOnUiThread {
-                    webView.stopLoading()
-                    webView.destroy()
+                    if (::webView.isInitialized && !webViewDestroyed) {
+                        webView.stopLoading()
+                        webView.destroy()
+                        webViewDestroyed = true
+                    }
                     startQrScan()
                 }
             }
@@ -148,9 +153,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (::webView.isInitialized) {
+        if (::webView.isInitialized && !webViewDestroyed) {
             webView.stopLoading()
             webView.destroy()
+            webViewDestroyed = true
         }
         super.onDestroy()
     }
