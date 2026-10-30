@@ -6,195 +6,231 @@
 <meta name="theme-color" content="#090b12">
 <title>NEXUS Remote</title>
 <style>
-:root{color-scheme:dark;font-family:Inter,Roboto,system-ui,sans-serif;background:#090b12;color:#f5f6fa}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#17203a 0,#090b12 55%);padding:22px}
-main{max-width:760px;margin:auto}.brand{font-size:22px;letter-spacing:.18em;font-weight:800}.brand span{color:#8da8ff}
-.sub{color:#929bad;font-size:13px;margin:7px 0 20px}.panel{background:#121722;border:1px solid #283246;border-radius:18px;padding:17px;margin:14px 0;box-shadow:0 12px 40px #0005}
-label{display:block;color:#adb8ca;font-size:12px;margin:8px 0 5px}input{width:100%;min-width:0;border:1px solid #344158;background:#0b1019;color:#fff;padding:12px;border-radius:10px;font-size:14px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
-button{background:#dce5ff;color:#111827;border:0;border-radius:10px;padding:12px 14px;font-weight:750;min-height:44px}button.secondary{background:#252f42;color:#e9eefc}button:disabled{opacity:.45}
-#status{font-size:12px;color:#9da9bd;margin-left:8px}#screen{width:100%;height:auto;min-height:160px;display:block;background:#05070b;border-radius:12px;touch-action:none;object-fit:contain}
-#screenWrap{overflow:hidden;background:#05070b;border-radius:12px}.hint{color:#8995aa;font-size:12px;line-height:1.5}.danger{color:#ffb7b7}
-@media(max-width:420px){body{padding:14px}.grid{grid-template-columns:1fr}}
+:root{color-scheme:dark;font-family:Inter,Roboto,system-ui,sans-serif;background:#090b12;color:#f4f6fb}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at top,#17213b 0,#090b12 58%);padding:16px}
+main{max-width:900px;margin:auto;min-height:calc(100vh - 32px);display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;padding:8px 2px 16px}
+.brand{font-weight:850;letter-spacing:.16em;font-size:20px}.brand span{color:#91aaff}
+.state{font-size:12px;color:#a9b7cf;background:#172236;border:1px solid #2a3851;padding:7px 11px;border-radius:30px}
+.viewer{flex:1;min-height:220px;display:flex;align-items:center;justify-content:center;background:#030509;border:1px solid #293346;border-radius:16px;overflow:hidden}
+video{width:100%;height:100%;max-height:calc(100vh - 190px);object-fit:contain;touch-action:none;display:none}
+.placeholder{text-align:center;color:#929fb4;padding:28px}.spinner{width:34px;height:34px;border:3px solid #27344c;border-top-color:#a8bcff;border-radius:50%;animation:spin .9s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}.message{font-size:14px}
+.controls{display:flex;gap:10px;padding:14px 0 2px}
+button{flex:1;border:0;border-radius:11px;padding:14px 12px;font:700 14px system-ui;min-height:48px;background:#dce5ff;color:#101827}
+button.secondary{background:#202b3e;color:#edf2ff;border:1px solid #35445f}button:disabled{opacity:.42}
+#keyboard{display:none;width:100%;margin-top:10px;background:#111a29;color:#fff;border:1px solid #35445f;border-radius:10px;padding:13px;font-size:16px}
+.hint{text-align:center;color:#77859c;font-size:11px;line-height:1.5;padding:10px 4px}
+@media(orientation:landscape){body{padding:10px}main{min-height:calc(100vh - 20px)}header{padding:0 2px 8px}.viewer{min-height:120px}video{max-height:calc(100vh - 125px)}.hint{padding:4px}}
 </style>
 </head>
-<body><main>
-<div class="brand">NEXUS <span>REMOTE</span></div>
-<div class="sub">Secure remote desktop · Android client preview</div>
-<section class="panel">
-<label for="signal">Signaling WSS URL</label><input id="signal" placeholder="wss://your-domain.example/ws" autocomplete="url">
-<div class="grid">
-<div><label for="room">Pairing room</label><input id="room" placeholder="your-private-room"></div>
-<div><label for="token">Access token</label><input id="token" type="password" autocomplete="off" placeholder="Session secret"></div>
-</div>
-<label for="turnUrl">TURN server (optional; recommended for restrictive networks)</label>
-<input id="turnUrl" placeholder="turn:turn.example.net:3478?transport=udp">
-<div class="grid">
-<div><label for="turnUser">TURN username</label><input id="turnUser" autocomplete="off"></div>
-<div><label for="turnCredential">TURN credential</label><input id="turnCredential" type="password" autocomplete="off"></div>
-</div>
-<div class="actions"><button id="connect">Connect</button><button id="disconnect" class="secondary" disabled>Disconnect</button><span id="status">Not connected</span></div>
-<p class="hint">Enter the same room and token configured on your Linux laptop. Use HTTPS/WSS for Internet connections. Signaling credentials are held in memory only.</p>
+<body>
+<main>
+<header><div class="brand">NEXUS <span>REMOTE</span></div><div class="state" id="state">PAIRING</div></header>
+<section class="viewer">
+  <div class="placeholder" id="placeholder"><div class="spinner"></div><div class="message" id="message">Connecting to your laptop…</div></div>
+  <video id="screen" autoplay playsinline muted></video>
 </section>
-<section class="panel">
-<div id="screenWrap"><video id="screen" autoplay playsinline muted></video></div>
-<div class="actions">
-<button id="control" class="secondary" disabled>Enable touch control</button>
-<button id="right" class="secondary" disabled>Right click</button>
-<button id="scrollUp" class="secondary" disabled>Scroll ↑</button>
-<button id="scrollDown" class="secondary" disabled>Scroll ↓</button>
+<div class="controls">
+  <button id="control" class="secondary" disabled hidden>Enable control</button>
+  <button id="disconnect" class="secondary">Disconnect</button>
 </div>
-<label for="textInput">Keyboard input</label>
-<input id="textInput" placeholder="Tap here and type (ASCII text)" disabled>
-<div class="actions">
-<button data-key="enter" class="secondary key" disabled>Enter</button>
-<button data-key="backspace" class="secondary key" disabled>Backspace</button>
-<button data-key="tab" class="secondary key" disabled>Tab</button>
-<button data-key="esc" class="secondary key" disabled>Esc</button>
-</div>
-<p class="hint">Touch the video to click. Drag to move/drag. Remote input is disabled on the laptop unless its owner explicitly enables it in the agent configuration.</p>
-</section>
+<input id="keyboard" type="text" autocomplete="off" autocapitalize="off" placeholder="Tap to type on laptop">
+<div class="hint" id="hint">Your laptop screen will appear here.</div>
 </main>
 <script>
 (() => {
-const $ = id => document.getElementById(id);
-const status = text => $("status").textContent = text;
-let ws = null, pc = null, dc = null, connected = false, controlAllowed = false, controlEnabled = false;
-let desktop = {width:1600,height:900}, activePointer = null;
-const send = value => { if (dc && dc.readyState === "open") dc.send(JSON.stringify(value)); };
-const waitIce = async peer => {
-  if (peer.iceGatheringState === "complete") return;
-  await Promise.race([
-    new Promise(resolve => peer.addEventListener("icegatheringstatechange", () => {
-      if (peer.iceGatheringState === "complete") resolve();
-    })),
-    new Promise(resolve => setTimeout(resolve, 12000))
-  ]);
-  if (peer.iceGatheringState !== "complete") throw new Error("ICE gathering timed out. Configure TURN and retry.");
-};
-function enableControls(enabled) {
-  ["right","scrollUp","scrollDown","textInput"].forEach(id => $(id).disabled = !enabled);
-  document.querySelectorAll(".key").forEach(el => el.disabled = !enabled);
-  $("control").disabled = !controlAllowed;
-  $("control").textContent = enabled ? "Disable touch control" : "Enable touch control";
-  $("control").classList.toggle("secondary", !enabled);
-}
-function point(e) {
-  const rect = $("screen").getBoundingClientRect();
-  const vw = $("screen").videoWidth || desktop.width;
-  const vh = $("screen").videoHeight || desktop.height;
-  const scale = Math.min(rect.width / vw, rect.height / vh);
-  const shownW = vw * scale, shownH = vh * scale;
-  const offsetX = (rect.width - shownW) / 2, offsetY = (rect.height - shownH) / 2;
-  return {
-    x: Math.max(0, Math.min(desktop.width - 1, Math.round((e.clientX - rect.left - offsetX) / shownW * desktop.width))),
-    y: Math.max(0, Math.min(desktop.height - 1, Math.round((e.clientY - rect.top - offsetY) / shownH * desktop.height)))
-  };
-}
-$("screen").addEventListener("pointerdown", e => {
-  if (!controlEnabled) return;
-  e.preventDefault(); activePointer = e.pointerId; $("screen").setPointerCapture(e.pointerId);
-  const p = point(e); send({type:"move",...p}); send({type:"down",...p,button:"left"});
-});
-$("screen").addEventListener("pointermove", e => {
-  if (!controlEnabled || activePointer !== e.pointerId) return;
-  send({type:"move",...point(e)});
-});
-function endPointer(e) {
-  if (activePointer !== e.pointerId) return;
-  send({type:"up",...point(e),button:"left"}); activePointer = null;
-}
-$("screen").addEventListener("pointerup", endPointer);
-$("screen").addEventListener("pointercancel", endPointer);
-$("screen").addEventListener("contextmenu", e => e.preventDefault());
-$("right").onclick = () => send({type:"click",button:"right"});
-$("scrollUp").onclick = () => send({type:"scroll",delta:3});
-$("scrollDown").onclick = () => send({type:"scroll",delta:-3});
-$("control").onclick = () => {
-  if (!controlAllowed) return;
-  controlEnabled = !controlEnabled;
-  send({type:"control_request",enabled:controlEnabled});
-  enableControls(controlEnabled);
-};
-$("textInput").addEventListener("input", e => {
-  const value = e.target.value;
-  for (const char of value) {
-    if (char.charCodeAt(0) >= 32 && char.charCodeAt(0) <= 126) send({type:"key",key:char});
+  const $ = id => document.getElementById(id);
+  let ws = null, pc = null, dc = null, payload = null;
+  let controlAllowed = false, controlEnabled = false, activePointer = null;
+
+  function setState(label, message) {
+    $("state").textContent = label;
+    if (message) $("message").textContent = message;
   }
-  e.target.value = "";
-});
-document.querySelectorAll(".key").forEach(el => el.addEventListener("click", () => send({type:"key",key:el.dataset.key})));
-function cleanup() {
-  connected = false; controlAllowed = false; controlEnabled = false; activePointer = null;
-  if (dc) { try { dc.close(); } catch (_) {} }
-  if (pc) { try { pc.close(); } catch (_) {} }
-  if (ws) { try { ws.close(); } catch (_) {} }
-  dc = pc = ws = null; $("screen").srcObject = null;
-  $("connect").disabled = false; $("disconnect").disabled = true; enableControls(false);
-}
-$("disconnect").onclick = () => { cleanup(); status("Disconnected"); };
-$("connect").onclick = async () => {
-  cleanup();
-  const signalingUrl = $("signal").value.trim(), room = $("room").value.trim(), token = $("token").value;
-  if (!/^wss:\/\//.test(signalingUrl) || !room || !token) { status("Enter WSS URL, room and token"); return; }
-  $("connect").disabled = true; status("Connecting to secure signaling…");
-  try {
-    ws = new WebSocket(signalingUrl);
-    await new Promise((resolve,reject) => { ws.onopen=resolve; ws.onerror=()=>reject(new Error("WebSocket connection failed")); });
-    ws.send(JSON.stringify({type:"join",room,role:"viewer",token}));
-    const iceServers = [{urls:"stun:stun.l.google.com:19302"}];
-    const turnUrl = $("turnUrl").value.trim();
-    const turnUser = $("turnUser").value.trim();
-    const turnCredential = $("turnCredential").value;
-    if (turnUrl) {
-      if (!turnUser || !turnCredential) throw new Error("TURN username and credential are required when a TURN URL is supplied");
-      iceServers.push({urls:turnUrl,username:turnUser,credential:turnCredential});
+  function send(value) {
+    if (dc && dc.readyState === "open") dc.send(JSON.stringify(value));
+  }
+  function showVideo(stream) {
+    $("screen").srcObject = stream;
+    $("screen").style.display = "block";
+    $("placeholder").style.display = "none";
+    $("hint").textContent = "Touch the laptop screen below to click and drag.";
+  }
+  function setControl(enabled) {
+    controlEnabled = enabled;
+    $("control").textContent = enabled ? "Disable control" : "Enable control";
+    $("keyboard").style.display = enabled ? "block" : "none";
+  }
+  function cleanup() {
+    activePointer = null;
+    setControl(false);
+    controlAllowed = false;
+    if (dc) { try { dc.close(); } catch (_) {} }
+    if (pc) { try { pc.close(); } catch (_) {} }
+    if (ws) { try { ws.close(); } catch (_) {} }
+    dc = pc = ws = null;
+    $("screen").srcObject = null;
+    $("screen").style.display = "none";
+  }
+  function point(e) {
+    const rect = $("screen").getBoundingClientRect();
+    const vw = $("screen").videoWidth || 1;
+    const vh = $("screen").videoHeight || 1;
+    const scale = Math.min(rect.width / vw, rect.height / vh);
+    const shownW = vw * scale, shownH = vh * scale;
+    const ox = (rect.width - shownW) / 2, oy = (rect.height - shownH) / 2;
+    return {
+      x: Math.max(0, Math.min(vw - 1, Math.round((e.clientX - rect.left - ox) / shownW * vw))),
+      y: Math.max(0, Math.min(vh - 1, Math.round((e.clientY - rect.top - oy) / shownH * vh)))
+    };
+  }
+  $("screen").addEventListener("pointerdown", e => {
+    if (!controlEnabled) return;
+    e.preventDefault();
+    activePointer = e.pointerId;
+    $("screen").setPointerCapture(e.pointerId);
+    const p = point(e);
+    send({type:"move", ...p});
+    send({type:"down", ...p, button:"left"});
+  });
+  $("screen").addEventListener("pointermove", e => {
+    if (!controlEnabled || activePointer !== e.pointerId) return;
+    send({type:"move", ...point(e)});
+  });
+  function endPointer(e) {
+    if (activePointer !== e.pointerId) return;
+    send({type:"up", ...point(e), button:"left"});
+    activePointer = null;
+  }
+  $("screen").addEventListener("pointerup", endPointer);
+  $("screen").addEventListener("pointercancel", endPointer);
+
+  $("control").addEventListener("click", () => {
+    if (!controlAllowed || !dc || dc.readyState !== "open") return;
+    $("control").disabled = true;
+    send({type:"control_request", enabled:!controlEnabled});
+  });
+  $("keyboard").addEventListener("input", e => {
+    for (const ch of e.target.value) {
+      const code = ch.charCodeAt(0);
+      if (code >= 32 && code <= 126) send({type:"key", key:ch});
     }
-    pc = new RTCPeerConnection({iceServers});
-    pc.addTransceiver("video", {direction:"recvonly"});
-    dc = pc.createDataChannel("nexus-control");
-    dc.onopen = () => status("Control channel ready · waiting for desktop stream");
-    dc.onmessage = event => {
-      let msg; try { msg = JSON.parse(event.data); } catch (_) { return; }
-      if (msg.type === "agent_info") {
-        desktop = {width:msg.width,height:msg.height};
-        controlAllowed = !!msg.remote_input_allowed;
-        $("control").disabled = !controlAllowed;
-        if (!controlAllowed) status("Live · laptop owner has disabled remote input");
-      } else if (msg.type === "control_status") {
-        controlEnabled = !!msg.enabled; enableControls(controlEnabled);
-        status(msg.enabled ? "Touch control enabled" : (msg.reason || "Touch control disabled"));
+    e.target.value = "";
+  });
+  $("disconnect").addEventListener("click", () => {
+    cleanup();
+    setState("DISCONNECTED", "Connection closed.");
+    $("hint").textContent = "Scan another laptop QR code to connect.";
+    if (window.NexusNative && window.NexusNative.scanAgain) {
+      $("disconnect").textContent = "Scan another QR";
+      $("disconnect").onclick = () => window.NexusNative.scanAgain();
+    }
+  });
+
+  async function connect(qr) {
+    cleanup();
+    payload = qr;
+    setState("CONNECTING", "Connecting to your laptop…");
+    try {
+      const iceServers = [{urls:"stun:stun.l.google.com:19302"}];
+      if (Array.isArray(qr.ice_servers)) {
+        for (const server of qr.ice_servers) iceServers.push(server);
       }
-    };
-    pc.ontrack = event => {
-      $("screen").srcObject = event.streams[0] || new MediaStream([event.track]);
-      status("Receiving desktop screen");
-    };
-    pc.onconnectionstatechange = () => {
-      const state = pc.connectionState;
-      if (state === "failed" || state === "disconnected" || state === "closed") status("WebRTC: " + state + " · check TURN/network settings");
-    };
-    ws.onmessage = async event => {
-      const msg = JSON.parse(event.data);
-      if (msg.type === "error") { status(msg.message); cleanup(); return; }
-      if (msg.type === "peer-ready" && !pc.localDescription) {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await waitIce(pc);
-        ws.send(JSON.stringify({type:"offer",room,sdp:pc.localDescription.sdp}));
-        status("Laptop found · negotiating encrypted media");
-      } else if (msg.type === "answer") {
-        await pc.setRemoteDescription({type:"answer",sdp:msg.sdp});
-      }
-    };
-    ws.onclose = () => { if (connected) { status("Signaling disconnected"); cleanup(); } };
-    connected = true; $("disconnect").disabled = false;
-    status("Connected to signaling · waiting for laptop agent");
-  } catch (error) {
-    cleanup(); status("Connection failed: " + error.message);
+      pc = new RTCPeerConnection({iceServers});
+      pc.addTransceiver("video", {direction:"recvonly"});
+      dc = pc.createDataChannel("nexus-control");
+      pc.ontrack = event => showVideo(event.streams[0] || new MediaStream([event.track]));
+      pc.onconnectionstatechange = () => {
+        if (!pc) return;
+        if (pc.connectionState === "failed") setState("CONNECTION FAILED", "Unable to reach the laptop. Try again or configure TURN on the server.");
+        else if (pc.connectionState === "disconnected") setState("RECONNECTING", "Connection interrupted…");
+        else if (pc.connectionState === "connected") setState("CONNECTED");
+      };
+      dc.onmessage = event => {
+        let message;
+        try { message = JSON.parse(event.data); } catch (_) { return; }
+        if (message.type === "agent_info") {
+          controlAllowed = !!message.remote_input_allowed;
+          $("control").hidden = !controlAllowed;
+          $("control").disabled = !controlAllowed;
+          $("hint").textContent = controlAllowed
+            ? "Your laptop owner enabled remote control. Tap Enable control to use it."
+            : "Connected in view-only mode. Enable remote control on the laptop to control it.";
+        } else if (message.type === "control_status") {
+          setControl(!!message.enabled);
+          $("control").disabled = false;
+          setState(message.enabled ? "CONTROL ON" : "CONNECTED", message.reason || (message.enabled ? "Touch control enabled." : "Remote control disabled."));
+        }
+      };
+      ws = new WebSocket(qr.ws_url);
+      await new Promise((resolve, reject) => {
+        ws.onopen = resolve;
+        ws.onerror = () => reject(new Error("Secure signaling connection failed."));
+      });
+      ws.onmessage = async event => {
+        let message;
+        try { message = JSON.parse(event.data); } catch (_) { return; }
+        if (message.type === "error") {
+          setState("PAIRING ERROR", message.message || "Pairing failed.");
+          cleanup();
+          return;
+        }
+        if (message.type === "peer-ready" && pc && !pc.localDescription) {
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            await waitForIce(pc);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({type:"offer", room:qr.room, sdp:pc.localDescription.sdp}));
+              setState("PAIRING", "Laptop found. Starting secure video…");
+            }
+          } catch (error) {
+            setState("CONNECTION FAILED", error.message);
+          }
+        } else if (message.type === "answer" && pc) {
+          await pc.setRemoteDescription({type:"answer", sdp:message.sdp});
+        }
+      };
+      ws.onclose = () => {
+        if (pc) setState("DISCONNECTED", "Signaling connection closed.");
+      };
+      ws.send(JSON.stringify({type:"join", room:qr.room, role:"viewer", token:qr.token}));
+    } catch (error) {
+      cleanup();
+      setState("CONNECTION FAILED", error.message || "Could not connect.");
+    }
   }
-};
-enableControls(false);
+  async function waitForIce(peer) {
+    if (peer.iceGatheringState === "complete") return;
+    await Promise.race([
+      new Promise(resolve => peer.addEventListener("icegatheringstatechange", () => {
+        if (peer.iceGatheringState === "complete") resolve();
+      })),
+      new Promise(resolve => setTimeout(resolve, 12000))
+    ]);
+    if (peer.iceGatheringState !== "complete") throw new Error("Network setup timed out. Configure TURN on your server.");
+  }
+
+  window.NEXUS_REMOTE = {
+    startFromQr(raw) {
+      try {
+        const qr = JSON.parse(raw);
+        if (qr.app !== "nexus-remote" || qr.v !== 1 || !qr.ws_url.startsWith("wss://") || !qr.room || !qr.token) {
+          throw new Error("Invalid NEXUS pairing QR.");
+        }
+        if (qr.expires_at && Date.now() / 1000 >= qr.expires_at) {
+          throw new Error("QR expired. Generate a new QR on the laptop.");
+        }
+        connect(qr);
+      } catch (error) {
+        setState("INVALID QR", error.message);
+        $("disconnect").textContent = "Scan another QR";
+        $("disconnect").onclick = () => window.NexusNative && window.NexusNative.scanAgain();
+      }
+    }
+  };
 })();
 </script>
-</body></html>
+</body>
+</html>
