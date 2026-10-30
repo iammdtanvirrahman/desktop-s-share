@@ -43,6 +43,7 @@ button.secondary{background:#202b3e;color:#edf2ff;border:1px solid #35445f}butto
   const $ = id => document.getElementById(id);
   let ws = null, pc = null, dc = null, payload = null;
   let controlAllowed = false, controlEnabled = false, activePointer = null;
+  let desktop = {width:1600, height:900};
 
   function setState(label, message) {
     $("state").textContent = label;
@@ -66,6 +67,9 @@ button.secondary{background:#202b3e;color:#edf2ff;border:1px solid #35445f}butto
     activePointer = null;
     setControl(false);
     controlAllowed = false;
+    $("control").hidden = true;
+    $("control").disabled = true;
+    $("keyboard").style.display = "none";
     if (dc) { try { dc.close(); } catch (_) {} }
     if (pc) { try { pc.close(); } catch (_) {} }
     if (ws) { try { ws.close(); } catch (_) {} }
@@ -81,8 +85,8 @@ button.secondary{background:#202b3e;color:#edf2ff;border:1px solid #35445f}butto
     const shownW = vw * scale, shownH = vh * scale;
     const ox = (rect.width - shownW) / 2, oy = (rect.height - shownH) / 2;
     return {
-      x: Math.max(0, Math.min(vw - 1, Math.round((e.clientX - rect.left - ox) / shownW * vw))),
-      y: Math.max(0, Math.min(vh - 1, Math.round((e.clientY - rect.top - oy) / shownH * vh)))
+      x: Math.max(0, Math.min(desktop.width - 1, Math.round((e.clientX - rect.left - ox) / shownW * desktop.width))),
+      y: Math.max(0, Math.min(desktop.height - 1, Math.round((e.clientY - rect.top - oy) / shownH * desktop.height)))
     };
   }
   $("screen").addEventListener("pointerdown", e => {
@@ -151,6 +155,7 @@ button.secondary{background:#202b3e;color:#edf2ff;border:1px solid #35445f}butto
         let message;
         try { message = JSON.parse(event.data); } catch (_) { return; }
         if (message.type === "agent_info") {
+          desktop = {width: Number(message.width) || 1600, height: Number(message.height) || 900};
           controlAllowed = !!message.remote_input_allowed;
           $("control").hidden = !controlAllowed;
           $("control").disabled = !controlAllowed;
