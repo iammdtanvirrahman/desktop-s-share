@@ -29,6 +29,20 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 fi
 chmod 600 "$CONFIG_FILE"
 
+APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+mkdir -p "$APP_DIR"
+cat > "$APP_DIR/nexus-remote.desktop" <<EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=NEXUS Remote
+Comment=Pair your Android phone with this computer
+Exec=/bin/bash -lc "bash '$ROOT/scripts/run-agent.sh'"
+Terminal=false
+Categories=Network;RemoteAccess;
+EOF
+chmod 644 "$APP_DIR/nexus-remote.desktop"
+
 cat <<EOF
 NEXUS Remote desktop app installed.
 
