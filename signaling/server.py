@@ -69,6 +69,18 @@ async def create_pairing(authorization: str | None = Header(default=None)):
         raise HTTPException(status_code=503, detail="Pairing capacity reached; retry shortly")
 
     payload = _new_pairing(public_wss_url)
+    turn_url = os.environ.get("NEXUS_TURN_URL", "")
+    if turn_url:
+        turn_username = os.environ.get("NEXUS_TURN_USERNAME", "")
+        turn_credential = os.environ.get("NEXUS_TURN_CREDENTIAL", "")
+        if not turn_username or not turn_credential:
+            pairings.pop(str(payload["room"]), None)
+            raise HTTPException(status_code=503, detail="TURN credentials are incomplete")
+        payload["ice_servers"] = [{
+            "urls": turn_url,
+            "username": turn_username,
+            "credential": turn_credential,
+        }]
     return payload
 
 
