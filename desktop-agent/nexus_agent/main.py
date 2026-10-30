@@ -44,7 +44,7 @@ async def run() -> int:
         print("Set NEXUS_SIGNALING_URL, NEXUS_SIGNALING_TOKEN, and NEXUS_ROOM.")
         return 2
     if signaling_url.startswith("ws://") and os.getenv("NEXUS_ALLOW_INSECURE_WS") != "1":
-        print("Plain ws:// is disabled by default. Use wss://, or explicitly set NEXUS_ALLOW_INSECURE_WS=1 for a trusted local test.")
+        print("Plain ws:// is disabled by default. Use wss://, or launch with the local Wi-Fi mode script on a trusted LAN.")
         return 2
 
     track = DesktopVideoTrack()
