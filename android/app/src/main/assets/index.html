@@ -171,7 +171,7 @@ button.secondary{background:#202b3e;color:#edf2ff;border:1px solid #35445f}butto
       ws = new WebSocket(qr.ws_url);
       await new Promise((resolve, reject) => {
         ws.onopen = resolve;
-        ws.onerror = () => reject(new Error("Secure signaling connection failed."));
+        ws.onerror = () => reject(new Error("Local Wi-Fi signaling connection failed."));
       });
       ws.onmessage = async event => {
         let message;
@@ -221,7 +221,7 @@ button.secondary{background:#202b3e;color:#edf2ff;border:1px solid #35445f}butto
     startFromQr(raw) {
       try {
         const qr = JSON.parse(raw);
-        if (qr.app !== "nexus-remote" || qr.v !== 1 || !qr.ws_url.startsWith("wss://") || !qr.room || !qr.token) {
+        if (qr.app !== "nexus-remote" || qr.v !== 1 || !(qr.ws_url.startsWith("wss://") || qr.ws_url.startsWith("ws://")) || !qr.room || !qr.token) {
           throw new Error("Invalid NEXUS pairing QR.");
         }
         if (qr.expires_at && Date.now() / 1000 >= qr.expires_at) {
