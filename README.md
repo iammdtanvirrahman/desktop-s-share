@@ -65,6 +65,16 @@ echo "$XDG_SESSION_TYPE"
 
 This milestone supports X11. Wayland portal/PipeWire support is not implemented yet.
 
+### Same-Wi-Fi mode (no VPS / no cloud hosting)
+
+On the laptop, after installing the desktop app, run:
+
+```bash
+bash scripts/run-local-wifi.sh
+```
+
+This starts the FastAPI signaling service bound to the LAN, creates a fresh random admin token for this run, and opens the desktop pairing window. The script auto-detects the laptop LAN IP; override it with `NEXUS_LOCAL_IP=192.168.0.161` if needed. The phone and laptop must be on the same trusted Wi-Fi. The QR uses unencrypted `ws://` signaling and is intended only for a private LAN; do not expose port 8765 to the Internet. The signaling server and QR token are temporary and local to the laptop. Android accepts `ws://` only for this prototype LAN mode.
+
 Clone and install:
 
 ```bash
